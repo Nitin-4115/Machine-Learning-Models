@@ -1,9 +1,17 @@
+import os
+import sys
 import torch
 import torch.nn.functional as F
 from torchvision import models
 import numpy as np
 import cv2
 from PIL import Image
+
+# Ensure project root is in the path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+sys.path.append(PROJECT_ROOT)
+
 from config import TRANSFORM
 from utils import get_transform
 
