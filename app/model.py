@@ -42,6 +42,7 @@ def register_hooks(model):
     model.layer4.register_forward_hook(forward_hook)
     model.layer4.register_full_backward_hook(backward_hook)
 
+
 def predict(image, model, class_names, top_k=3):
     transform = get_transform()
     input_tensor = transform(image).unsqueeze(0).to(next(model.parameters()).device)
@@ -49,6 +50,7 @@ def predict(image, model, class_names, top_k=3):
     probs = F.softmax(output, dim=1)[0]
     top_probs, top_idxs = torch.topk(probs, top_k)
     return [(class_names[idx], float(prob)) for idx, prob in zip(top_idxs, top_probs)]
+
 
 def generate_gradcam(image: Image.Image, model, class_names):
     model.eval()
@@ -73,7 +75,7 @@ def generate_gradcam(image: Image.Image, model, class_names):
         nonlocal gradient
         gradient = grad_output[0]
 
-    # Hook into the correct layer: last conv in ResNet50
+    # Hook into the last conv layer of ResNet50
     target_layer = model.layer4[-1].conv3
     forward_handle = target_layer.register_forward_hook(forward_hook)
     backward_handle = target_layer.register_backward_hook(backward_hook)
@@ -94,8 +96,8 @@ def generate_gradcam(image: Image.Image, model, class_names):
         raise RuntimeError("Grad-CAM failed: Hooked data is empty. Check model layer or hook registration.")
 
     # Grad-CAM calculation
-    act = activation.squeeze().cpu().numpy()
-    grad = gradient.squeeze().cpu().numpy()
+    act = activation.squeeze(0).cpu().numpy()
+    grad = gradient.squeeze(0).cpu().numpy()
 
     weights = np.mean(grad, axis=(1, 2))
     cam = np.zeros(act.shape[1:], dtype=np.float32)
