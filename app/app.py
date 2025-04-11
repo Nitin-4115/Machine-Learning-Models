@@ -3,15 +3,22 @@ from PIL import Image
 import sys
 import os
 
-# Ensure project root is in the path
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
-sys.path.append(PROJECT_ROOT)
+st.set_page_config(
+    page_title="Bird Species Classifier",
+    page_icon="🦜",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
 from config import DATASET_PATH, MODEL_PATH
 from model import load_model, predict, generate_gradcam
 from utils import load_class_names
 from ui import render_sidebar, render_title, render_uploaded_image, render_predictions, render_gradcam
+
+# Ensure project root is in the path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+sys.path.append(PROJECT_ROOT)
 
 # Fix for Streamlit + torch.classes RuntimeError
 if "torch.classes" in sys.modules:
