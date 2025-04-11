@@ -2,7 +2,7 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-from torchvision import models
+from torchvision import models transforms
 import numpy as np
 import cv2
 from PIL import Image
