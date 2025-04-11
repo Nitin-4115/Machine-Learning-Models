@@ -1,39 +1,60 @@
 import streamlit as st
 from PIL import Image
 
-# Global CSS for custom font and theme
+# Global CSS for custom font and sleek dark theme
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
 
-        html, body, [class*="css"]  {
+        html, body, [class*="css"] {
             font-family: 'Poppins', sans-serif;
-            background-color: #f4f6f8;
+            background-color: #0f1117;
+            color: #f0f0f0;
         }
 
         h1, h2, h3, h4 {
-            color: #2c3e50;
+            color: #00C6A7;
         }
 
         .stButton > button {
-            background-color: #4caf50;
+            background-color: #00C6A7;
             color: white;
             border: none;
             padding: 0.5rem 1rem;
             border-radius: 8px;
             font-weight: 600;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .stButton > button:hover {
+            background-color: #00b39f;
+            transform: scale(1.02);
         }
 
         .prediction-box {
-            background-color: #ffffff;
+            background-color: rgba(28, 30, 38, 0.75);
+            backdrop-filter: blur(10px);
             padding: 1rem;
             border-radius: 1rem;
-            box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 0 12px rgba(0, 198, 167, 0.1);
             margin-top: 1rem;
         }
 
         .center-text {
             text-align: center;
+        }
+
+        .stMarkdown code {
+            background-color: #1c1e26;
+        }
+
+        .css-1v0mbdj, .css-1aumxhk {
+            background-color: #1c1e26 !important;
+            border-radius: 10px;
+        }
+
+        .css-1aumxhk h1 {
+            color: #00C6A7;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -93,10 +114,10 @@ def render_predictions(predictions):
         bar_width = f"width: {max(percent_width, 4)}%;" if percent_width > 0 else "width: 0%;"
 
         st.markdown(f"""
-            <div style="margin-bottom: 10px;">
+            <div class='prediction-box'>
                 <strong>{cls}</strong>: {percent_text}
-                <div style="height: 10px; background-color: #55555522; border-radius: 5px;">
-                    <div style="{bar_width} height: 10px; background-color: #4caf50; border-radius: 5px;"></div>
+                <div style="height: 10px; background-color: #55555533; border-radius: 5px;">
+                    <div style="{bar_width} height: 10px; background-color: #00C6A7; border-radius: 5px;"></div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
