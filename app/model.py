@@ -20,12 +20,15 @@ gradients = None
 activations = None
 
 def load_model(model_path, num_classes):
-    model = models.resnet50(weights=None)
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found at: {model_path}")
+
+    model = models.resnet50(pretrained=False)
     model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
     model.load_state_dict(torch.load(model_path, map_location="cuda" if torch.cuda.is_available() else "cpu"))
     model.eval()
-    register_hooks(model)
-    return model.to("cuda" if torch.cuda.is_available() else "cpu")
+    return model
+
 
 def register_hooks(model):
     def forward_hook(module, input, output):
