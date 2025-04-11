@@ -61,39 +61,42 @@ def generate_gradcam(image: Image.Image, model, class_names):
     input_tensor = transform(image).unsqueeze(0)
     input_tensor.requires_grad = True
 
-    # Hook the activations and gradients
-    activations = []
-    gradients = []
+    # Store outputs
+    activation = None
+    gradient = None
 
     def forward_hook(module, input, output):
-        activations.append(output)
+        nonlocal activation
+        activation = output
 
     def backward_hook(module, grad_input, grad_output):
-        gradients.append(grad_output[0])
+        nonlocal gradient
+        gradient = grad_output[0]
 
-    # Safely get the last conv layer of ResNet50
-    last_conv = model.layer4[-1].conv3
+    # Hook into the correct layer: last conv in ResNet50
+    target_layer = model.layer4[-1].conv3
+    forward_handle = target_layer.register_forward_hook(forward_hook)
+    backward_handle = target_layer.register_backward_hook(backward_hook)
 
-    forward_handle = last_conv.register_forward_hook(forward_hook)
-    backward_handle = last_conv.register_backward_hook(backward_hook)
-
-    # Forward + backward
+    # Forward + backward pass
     output = model(input_tensor)
     class_idx = torch.argmax(output).item()
     score = output[0, class_idx]
     model.zero_grad()
     score.backward()
 
-    # Get hooked outputs
-    if not activations or not gradients:
-        forward_handle.remove()
-        backward_handle.remove()
-        raise RuntimeError("Grad-CAM hooks did not capture any data. Check hook layer.")
+    # Remove hooks
+    forward_handle.remove()
+    backward_handle.remove()
 
-    grad = gradients[0].squeeze().cpu().numpy()
-    act = activations[0].squeeze().cpu().numpy()
+    # Validate hook data
+    if activation is None or gradient is None:
+        raise RuntimeError("Grad-CAM failed: Hooked data is empty. Check model layer or hook registration.")
 
-    # Compute weights and CAM
+    # Grad-CAM calculation
+    act = activation.squeeze().cpu().numpy()
+    grad = gradient.squeeze().cpu().numpy()
+
     weights = np.mean(grad, axis=(1, 2))
     cam = np.zeros(act.shape[1:], dtype=np.float32)
     for i, w in enumerate(weights):
@@ -105,15 +108,11 @@ def generate_gradcam(image: Image.Image, model, class_names):
     cam /= cam.max()
     cam = np.uint8(255 * cam)
 
-    # Convert CAM to heatmap and overlay
+    # Create overlay
     heatmap = cv2.applyColorMap(cam, cv2.COLORMAP_JET)
     heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
-
     img_np = np.array(image)
     overlayed = cv2.addWeighted(img_np, 0.6, heatmap, 0.4, 0)
     final_image = Image.fromarray(overlayed)
-
-    forward_handle.remove()
-    backward_handle.remove()
 
     return final_image
