@@ -3,7 +3,9 @@ from PIL import Image
 import sys
 import os
 
-# ✅ MUST be the first Streamlit command
+import streamlit as st
+
+# ✅ MUST be the very first Streamlit command
 st.set_page_config(
     page_title="Bird Species Classifier",
     page_icon="🦜",
@@ -11,12 +13,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Maintenance mode check
+# ✅ Check secrets AFTER setting page config
 APP_ONLINE = st.secrets.get("APP_ONLINE", "true").lower() == "true"
 
+# 🚧 Maintenance mode screen
 if not APP_ONLINE:
-    st.set_page_config(page_title="🛠️ Under Maintenance", layout="centered")
-
     st.markdown(
         """
         <h1 style='text-align: center; color: #FF6B6B;'>🚧 Under Maintenance</h1>
@@ -28,6 +29,7 @@ if not APP_ONLINE:
         unsafe_allow_html=True
     )
     st.stop()
+
 
 # Continue with normal app
 from config import DATASET_PATH, MODEL_PATH
