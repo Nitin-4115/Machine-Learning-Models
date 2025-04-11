@@ -71,10 +71,9 @@ def generate_gradcam(image: Image.Image, model, class_names):
     def backward_hook(module, grad_input, grad_output):
         gradients.append(grad_output[0])
 
-    # Register hooks on the last convolutional layer
-    for name, module in model.named_modules():
-        if isinstance(module, torch.nn.Conv2d):
-            last_conv = module
+    # Safely get the last conv layer of ResNet50
+    last_conv = model.layer4[-1].conv3
+
     forward_handle = last_conv.register_forward_hook(forward_hook)
     backward_handle = last_conv.register_backward_hook(backward_hook)
 
@@ -86,13 +85,17 @@ def generate_gradcam(image: Image.Image, model, class_names):
     score.backward()
 
     # Get hooked outputs
+    if not activations or not gradients:
+        forward_handle.remove()
+        backward_handle.remove()
+        raise RuntimeError("Grad-CAM hooks did not capture any data. Check hook layer.")
+
     grad = gradients[0].squeeze().cpu().numpy()
     act = activations[0].squeeze().cpu().numpy()
 
-    # Compute weights
+    # Compute weights and CAM
     weights = np.mean(grad, axis=(1, 2))
     cam = np.zeros(act.shape[1:], dtype=np.float32)
-
     for i, w in enumerate(weights):
         cam += w * act[i]
 
@@ -102,17 +105,14 @@ def generate_gradcam(image: Image.Image, model, class_names):
     cam /= cam.max()
     cam = np.uint8(255 * cam)
 
-    # Convert CAM to color
+    # Convert CAM to heatmap and overlay
     heatmap = cv2.applyColorMap(cam, cv2.COLORMAP_JET)
     heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
 
-    # Blend with original image
     img_np = np.array(image)
     overlayed = cv2.addWeighted(img_np, 0.6, heatmap, 0.4, 0)
-
     final_image = Image.fromarray(overlayed)
 
-    # Cleanup
     forward_handle.remove()
     backward_handle.remove()
 
