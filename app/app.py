@@ -1,4 +1,7 @@
 import streamlit as st
+from PIL import Image
+import sys
+import os
 
 # ✅ MUST be the first Streamlit command
 st.set_page_config(
@@ -8,10 +11,25 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-from PIL import Image
-import sys
-import os
+# Maintenance mode check
+APP_ONLINE = st.secrets.get("APP_ONLINE", "true").lower() == "true"
 
+if not APP_ONLINE:
+    st.set_page_config(page_title="🛠️ Under Maintenance", layout="centered")
+
+    st.markdown(
+        """
+        <h1 style='text-align: center; color: #FF6B6B;'>🚧 Under Maintenance</h1>
+        <p style='text-align: center; font-size: 20px;'>
+            We're currently making improvements.<br>
+            Please check back soon. 🙏
+        </p>
+        """,
+        unsafe_allow_html=True
+    )
+    st.stop()
+
+# Continue with normal app
 from config import DATASET_PATH, MODEL_PATH
 from model import load_model, predict, generate_gradcam
 from utils import load_class_names
