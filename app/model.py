@@ -50,42 +50,70 @@ def predict(image, model, class_names, top_k=3):
     top_probs, top_idxs = torch.topk(probs, top_k)
     return [(class_names[idx], float(prob)) for idx, prob in zip(top_idxs, top_probs)]
 
-def generate_gradcam(image, model, class_names=None):
-    global activations, gradients
+def generate_gradcam(image: Image.Image, model, class_names):
+    model.eval()
 
-    device = next(model.parameters()).device
-    input_tensor = TRANSFORM(image).unsqueeze(0).to(device)
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+    ])
 
-    # Reset activations and gradients
-    activations = None
-    gradients = None
-    model.zero_grad()
+    input_tensor = transform(image).unsqueeze(0)
+    input_tensor.requires_grad = True
 
+    # Hook the activations and gradients
+    activations = []
+    gradients = []
+
+    def forward_hook(module, input, output):
+        activations.append(output)
+
+    def backward_hook(module, grad_input, grad_output):
+        gradients.append(grad_output[0])
+
+    # Register hooks on the last convolutional layer
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Conv2d):
+            last_conv = module
+    forward_handle = last_conv.register_forward_hook(forward_hook)
+    backward_handle = last_conv.register_backward_hook(backward_hook)
+
+    # Forward + backward
     output = model(input_tensor)
-    pred_class = output.argmax().item()
-    class_label = class_names[pred_class] if class_names else f"Class {pred_class}"
+    class_idx = torch.argmax(output).item()
+    score = output[0, class_idx]
+    model.zero_grad()
+    score.backward()
 
-    output[0, pred_class].backward()
+    # Get hooked outputs
+    grad = gradients[0].squeeze().cpu().numpy()
+    act = activations[0].squeeze().cpu().numpy()
 
-    if activations is None or gradients is None:
-        print("Grad-CAM warning: activations or gradients are None.")
-        return image
-
-    weights = torch.mean(gradients, dim=(2, 3))[0]
-    cam = torch.zeros(activations.shape[2:], dtype=torch.float32).to(device)
+    # Compute weights
+    weights = np.mean(grad, axis=(1, 2))
+    cam = np.zeros(act.shape[1:], dtype=np.float32)
 
     for i, w in enumerate(weights):
-        cam += w * activations[0, i, :, :]
+        cam += w * act[i]
 
-    cam = cam.detach().cpu().numpy()
     cam = np.maximum(cam, 0)
     cam = cv2.resize(cam, (image.width, image.height))
-
     cam -= cam.min()
-    if cam.max() != 0:
-        cam /= cam.max()
+    cam /= cam.max()
+    cam = np.uint8(255 * cam)
 
-    heatmap = cv2.applyColorMap(np.uint8(255 * cam), cv2.COLORMAP_JET)
-    overlayed = cv2.addWeighted(np.array(image.convert("RGB")), 0.5, heatmap, 0.5, 0)
+    # Convert CAM to color
+    heatmap = cv2.applyColorMap(cam, cv2.COLORMAP_JET)
+    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
 
-    return Image.fromarray(overlayed)
+    # Blend with original image
+    img_np = np.array(image)
+    overlayed = cv2.addWeighted(img_np, 0.6, heatmap, 0.4, 0)
+
+    final_image = Image.fromarray(overlayed)
+
+    # Cleanup
+    forward_handle.remove()
+    backward_handle.remove()
+
+    return final_image
