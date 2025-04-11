@@ -1,10 +1,12 @@
 import os
 from torchvision import transforms
 
-# Paths
-BASE_DIR = r"C:\Projects\Bird Species Detection ML Model"
-DATASET_PATH = os.path.join(BASE_DIR, "dataset", "test")
-MODEL_PATH = os.path.join(BASE_DIR, "bird_species_model.pth")
+# Base directory (relative to current file)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Paths (relative to repo structure)
+DATASET_PATH = os.path.join(BASE_DIR, "..", "dataset", "test")
+MODEL_PATH = os.path.join(BASE_DIR, "..", "bird_species_model.pth")
 
 # Model settings
 IMAGE_SIZE = (224, 224)
