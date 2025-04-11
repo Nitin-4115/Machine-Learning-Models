@@ -42,9 +42,8 @@ uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"],
 
 if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
-    predictions = predict(image, model, class_names, top_k)
-
     render_uploaded_image(image)
+    predictions = predict(image, model, class_names, top_k)
     render_predictions(predictions)
 
     if show_gradcam:
