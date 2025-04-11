@@ -1,14 +1,16 @@
 import streamlit as st
-from PIL import Image
-import sys
-import os
 
+# ✅ MUST be the first Streamlit command
 st.set_page_config(
     page_title="Bird Species Classifier",
     page_icon="🦜",
     layout="centered",
     initial_sidebar_state="expanded"
 )
+
+from PIL import Image
+import sys
+import os
 
 from config import DATASET_PATH, MODEL_PATH
 from model import load_model, predict, generate_gradcam
@@ -23,13 +25,6 @@ sys.path.append(PROJECT_ROOT)
 # Fix for Streamlit + torch.classes RuntimeError
 if "torch.classes" in sys.modules:
     del sys.modules["torch.classes"]
-
-# Page configuration
-st.set_page_config(
-    page_title="Bird Species Classifier",
-    layout="centered",
-    page_icon="🦜"
-)
 
 # Sidebar controls
 top_k, show_gradcam = render_sidebar()
