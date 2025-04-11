@@ -62,6 +62,7 @@ def generate_gradcam(image: Image.Image, model, class_names):
 
     input_tensor = transform(image).unsqueeze(0)
     input_tensor.requires_grad = True
+    input_tensor = input_tensor.to(next(model.parameters()).device)
 
     # Store outputs
     activation = None
@@ -69,52 +70,52 @@ def generate_gradcam(image: Image.Image, model, class_names):
 
     def forward_hook(module, input, output):
         nonlocal activation
-        activation = output
+        activation = output.detach()
 
     def backward_hook(module, grad_input, grad_output):
         nonlocal gradient
-        gradient = grad_output[0]
+        gradient = grad_output[0].detach()
 
-    # Hook into the last conv layer of ResNet50
-    target_layer = model.layer4[-1].conv3
+    # Hook into last conv layer
+    try:
+        target_layer = model.layer4[-1].conv3
+    except AttributeError:
+        raise RuntimeError("Failed to access model.layer4[-1].conv3. Check model architecture.")
+
     forward_handle = target_layer.register_forward_hook(forward_hook)
     backward_handle = target_layer.register_backward_hook(backward_hook)
 
-    # Forward + backward pass
-    output = model(input_tensor)
-    class_idx = torch.argmax(output).item()
-    score = output[0, class_idx]
-    model.zero_grad()
-    score.backward()
+    try:
+        output = model(input_tensor)
+        class_idx = torch.argmax(output).item()
+        score = output[0, class_idx]
+        model.zero_grad()
+        score.backward()
 
-    # Remove hooks
-    forward_handle.remove()
-    backward_handle.remove()
+        # Ensure hooks captured values
+        if activation is None or gradient is None:
+            raise RuntimeError("Grad-CAM hook failed to capture activations or gradients.")
 
-    # Validate hook data
-    if activation is None or gradient is None:
-        raise RuntimeError("Grad-CAM failed: Hooked data is empty. Check model layer or hook registration.")
+        act = activation.squeeze(0).cpu().numpy()
+        grad = gradient.squeeze(0).cpu().numpy()
 
-    # Grad-CAM calculation
-    act = activation.squeeze(0).cpu().numpy()
-    grad = gradient.squeeze(0).cpu().numpy()
+        weights = np.mean(grad, axis=(1, 2))
+        cam = np.zeros(act.shape[1:], dtype=np.float32)
+        for i, w in enumerate(weights):
+            cam += w * act[i]
 
-    weights = np.mean(grad, axis=(1, 2))
-    cam = np.zeros(act.shape[1:], dtype=np.float32)
-    for i, w in enumerate(weights):
-        cam += w * act[i]
+        cam = np.maximum(cam, 0)
+        cam = cv2.resize(cam, (image.width, image.height))
+        cam -= cam.min()
+        cam /= cam.max()
+        cam = np.uint8(255 * cam)
 
-    cam = np.maximum(cam, 0)
-    cam = cv2.resize(cam, (image.width, image.height))
-    cam -= cam.min()
-    cam /= cam.max()
-    cam = np.uint8(255 * cam)
+        heatmap = cv2.applyColorMap(cam, cv2.COLORMAP_JET)
+        heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
+        img_np = np.array(image)
+        overlayed = cv2.addWeighted(img_np, 0.6, heatmap, 0.4, 0)
+        return Image.fromarray(overlayed)
 
-    # Create overlay
-    heatmap = cv2.applyColorMap(cam, cv2.COLORMAP_JET)
-    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
-    img_np = np.array(image)
-    overlayed = cv2.addWeighted(img_np, 0.6, heatmap, 0.4, 0)
-    final_image = Image.fromarray(overlayed)
-
-    return final_image
+    finally:
+        forward_handle.remove()
+        backward_handle.remove()
