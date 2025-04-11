@@ -2,6 +2,12 @@ import streamlit as st
 from PIL import Image
 import sys
 import os
+
+# Ensure project root is in the path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+sys.path.append(PROJECT_ROOT)
+
 from config import DATASET_PATH, MODEL_PATH
 from model import load_model, predict, generate_gradcam
 from utils import load_class_names
